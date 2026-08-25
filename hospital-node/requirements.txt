@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+kafka-python-ng
+tensorflow
+pandas
+requests
