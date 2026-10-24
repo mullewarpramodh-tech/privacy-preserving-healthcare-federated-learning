@@ -4,6 +4,7 @@ import com.fl.admin.model.Hospital;
 import com.fl.admin.repository.HospitalRepository;
 import com.fl.admin.security.JwtUtil;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -15,10 +16,12 @@ public class AuthController {
 
     private final HospitalRepository hospitalRepository;
     private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(HospitalRepository hospitalRepository, JwtUtil jwtUtil) {
+    public AuthController(HospitalRepository hospitalRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
         this.hospitalRepository = hospitalRepository;
         this.jwtUtil = jwtUtil;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/register")
@@ -26,8 +29,15 @@ public class AuthController {
         if (hospitalRepository.findByEmail(hospital.getEmail()).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Email already registered"));
         }
+        
+        // Secure password with BCrypt hashing before storing in Neon PostgreSQL
+        hospital.setPassword(passwordEncoder.encode(hospital.getPassword()));
         hospitalRepository.save(hospital);
-        return ResponseEntity.ok(Map.of("message", "Hospital registered successfully", "hospitalId", hospital.getId()));
+        
+        return ResponseEntity.ok(Map.of(
+            "message", "Hospital registered successfully", 
+            "hospitalId", hospital.getId()
+        ));
     }
 
     @PostMapping("/login")
@@ -35,11 +45,19 @@ public class AuthController {
         String email = credentials.get("email");
         String password = credentials.get("password");
 
+        if (email == null || password == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
+        }
+
         Optional<Hospital> hospitalOpt = hospitalRepository.findByEmail(email);
         
-        if (hospitalOpt.isPresent() && hospitalOpt.get().getPassword().equals(password)) {
+        if (hospitalOpt.isPresent() && passwordEncoder.matches(password, hospitalOpt.get().getPassword())) {
             String token = jwtUtil.generateToken(email);
-            return ResponseEntity.ok(Map.of("token", token));
+            return ResponseEntity.ok(Map.of(
+                "token", token,
+                "hospitalId", hospitalOpt.get().getId(),
+                "hospitalName", hospitalOpt.get().getName()
+            ));
         }
         
         return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
