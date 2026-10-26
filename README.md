@@ -8,68 +8,72 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon_Serverless-blue?style=for-the-badge&logo=postgresql)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-A decentralized, privacy-preserving machine learning architecture engineered to train deep learning models across distributed hospital data silos without centralizing sensitive electronic health records (EHR).
+A decentralized, privacy-preserving machine learning architecture engineered to train deep learning neural networks across distributed hospital edge silos without centralizing sensitive electronic health records (EHR).
 
 ---
 
-## Architecture & Data Flow
+## 🏗️ Architecture & Asynchronous Event Flow
 
 ```mermaid
 flowchart TD
-    subgraph Hospital Node A (Local Edge)
-        DataA[(Local Patient EHR)] --> LocalTrainA[TensorFlow Model Training]
-        LocalTrainA --> WeightsA[Extracted Model Weights]
+    subgraph Hospital Node (Edge Client)
+        EHR[(Local Private EHR)] --> LocalTrain[TensorFlow Keras Training]
+        LocalTrain --> ExtractedWeights[Trained Layer Tensors & Accuracy]
     end
 
-    subgraph Hospital Node B (Local Edge)
-        DataB[(Local Patient EHR)] --> LocalTrainB[TensorFlow Model Training]
-        LocalTrainB --> WeightsB[Extracted Model Weights]
+    ExtractedWeights -->|Kafka: hospital-local-weights| Aggregator[Spring Boot FedAvg Engine]
+
+    subgraph Central Admin Orchestrator
+        Aggregator --> FedAvgCalc[Compute Federated Averaging]
+        FedAvgCalc --> DB[(Neon Serverless PostgreSQL)]
+        FedAvgCalc --> GlobalModel[Updated Global Model Version]
     end
 
-    WeightsA -->|Kafka: hospital-local-weights| Admin[Spring Boot Admin Orchestrator]
-    WeightsB -->|Kafka: hospital-local-weights| Admin
-
-    subgraph Aggregation Engine
-        Admin -->|Federated Averaging FedAvg| GlobalModel[Updated Global Model Weights]
-        Admin --> DB[(Neon Cloud PostgreSQL)]
-    end
-
-    GlobalModel -->|Kafka Broadcast: global-model-updates| Hospital Node A
-    GlobalModel -->|Kafka Broadcast: global-model-updates| Hospital Node B
+    GlobalModel -->|Kafka Broadcast: global-model-updates| LocalTrain
 ```
 
 ---
 
-## Key Highlights & Privacy Guarantees
+## 🔒 Key Highlights & Privacy Guarantees
 
-* **Zero Raw Data Centralization:** Compliant with healthcare data governance (HIPAA, India DPDP Act). Raw patient records never leave the local hospital firewall.
-* **Polyglot Microservices:** Combines high-performance Java Spring Boot (Admin Orchestrator) for participant registration, JWT authentication, and Kafka stream management with Python/TensorFlow (Hospital Edge Nodes) for localized neural network computation.
-* **Federated Averaging (FedAvg):** Aggregates local gradient updates to formulate global model weights:
-  $$\theta_{\text{global}} \leftarrow \sum_{k=1}^{K} \frac{n_k}{n} \theta_k$$
-* **Event-Driven Coordination:** Asynchronous model distribution and weight collection mediated by Apache Kafka topics (`global-model-updates` and `hospital-local-weights`).
-
----
-
-## Technology Stack
-
-* **Central Admin Node:** Java 21, Spring Boot 3.3, Spring Security, JWT, Neon Serverless PostgreSQL
-* **Message Broker:** Apache Kafka
-* **Edge ML Client:** Python 3.11, TensorFlow 2.x, Keras, Pandas, Kafka-Python
-* **Build Tools:** Maven & Pip
+* **Zero Raw Data Centralization:** Complies with strict healthcare governance regulations (HIPAA, GDPR, India DPDP Act). Patient records remain strictly behind hospital firewalls.
+* **True Federated Averaging (FedAvg):** Mathematically aggregates multi-dimensional tensor weights weighted by client sample counts:
+  $$\theta_{\text{global}}^{(t+1)} \leftarrow \sum_{k=1}^{K} \frac{n_k}{N} \theta_k^{(t)}$$
+* **Event-Driven Polyglot Microservices:** Combines high-concurrency **Java Spring Boot** (participant registration, BCrypt password hashing, JWT stateless authentication, and Kafka stream orchestration) with **Python 3 / TensorFlow** for edge tensor training.
+* **Resilient Persistence:** Tracks global model versions, accuracy progression, and audit logs using **Neon Serverless PostgreSQL**.
 
 ---
 
-## Repository Structure
+## ⚙️ Technology Stack
+
+* **Central Orchestrator:** Java 21, Spring Boot 3.3, Spring Security (BCrypt + JWT), Spring Data JPA, Neon PostgreSQL.
+* **Event Broker:** Apache Kafka (`global-model-updates` & `hospital-local-weights`).
+* **Edge ML Client:** Python 3.11, TensorFlow 2.x, Keras, Pandas, NumPy, Kafka-Python.
+* **DevOps / CI/CD:** GitHub Actions (independent multi-runtime build matrix).
+
+---
+
+## 📁 Repository Structure
 
 ```text
 privacy-preserving-healthcare-federated-learning/
 ├── admin-service/               # Java / Spring Boot Central Orchestration Node
-│   ├── src/main/java/com/federated/admin/
+│   ├── src/main/java/com/fl/admin/
+│   │   ├── config/              # KafkaConfig, SecurityConfig (BCrypt, Stateless JWT)
+│   │   ├── controller/          # AuthController, FederatedLearningController
+│   │   ├── model/               # Hospital.java, GlobalModelVersion.java
+│   │   ├── repository/          # HospitalRepository, GlobalModelVersionRepository
+│   │   ├── security/            # JwtUtil, JwtAuthFilter
+│   │   └── service/             # FederatedAggregationService (FedAvg Engine)
+│   ├── .env.example             # Template for externalized environment variables
 │   └── pom.xml
-├── hospital-node/               # Python / TensorFlow Edge Client
-│   ├── client.py                # Local training & Kafka listener
-│   ├── mock_patient_data.csv    # Local training dataset
+├── hospital-node/               # Python / TensorFlow Edge ML Client
+│   ├── main.py                  # Local training loop & Kafka event listener
+│   ├── generate_data.py         # Synthetic clinical EHR generator
+│   ├── mock_patient_data.csv    # Private local patient dataset
 │   └── requirements.txt
+├── .github/workflows/           # Automated CI/CD workflows
+│   └── ci-cd-pipeline.yml
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -77,53 +81,65 @@ privacy-preserving-healthcare-federated-learning/
 
 ---
 
-## Quick Start & Execution
+## 🚀 Quick Start Guide
 
-### 1. Start the Java Admin Orchestrator
+### 1. Launch the Java Admin Orchestrator
 ```bash
 cd admin-service
 ./mvnw spring-boot:run
 ```
-*The service initializes on port 8080 and configures the Kafka topics.*
+*The service boots up on `http://localhost:8080`, initializes the in-memory embedded Kafka broker on port `9092`, and connects to Neon PostgreSQL.*
 
-### 2. Start the Python Hospital ML Node
+### 2. Launch the Python Hospital Edge Node
 ```bash
 cd hospital-node
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# On Windows: venv\Scripts\activate | On Linux/macOS: source venv/bin/activate
 pip install -r requirements.txt
-python client.py
+python main.py
 ```
-*The client connects to Kafka and begins listening for `global-model-updates`.*
+*The edge node connects to Kafka and begins listening for `global-model-updates`.*
 
-### 3. Trigger Federated Training Pipeline
+### 3. Execute a Federated Training Round
+
+#### A. Register & Authenticate a Hospital Node
 ```bash
-# Register a hospital
+# Register hospital (passwords are securely hashed with BCrypt)
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"name": "Metro Hospital", "email": "admin@metrohealth.org", "password": "securePass123"}'
+  -d '{"name": "Delhi City Hospital", "email": "admin@delhihealth.org", "password": "secureHospitalPass123"}'
 
-# Login to retrieve JWT
+# Login to obtain signed JWT
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "admin@metrohealth.org", "password": "securePass123"}' | jq -r .token)
+  -d '{"email": "admin@delhihealth.org", "password": "secureHospitalPass123"}' | jq -r .token)
+```
 
-# Trigger training broadcast
+#### B. Broadcast Training Signal
+```bash
 curl -X POST http://localhost:8080/api/fl/broadcast \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### C. Inspect Aggregated Global Model Versions in Neon PostgreSQL
+```bash
+curl -X GET http://localhost:8080/api/fl/versions \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
 
-## API Reference Guide
+## 📡 API Reference Guide
 
 | Endpoint | Method | Security | Description |
 |---|---|---|---|
-| `/api/auth/register` | `POST` | Public | Onboards a hospital node into PostgreSQL |
-| `/api/auth/login` | `POST` | Public | Authenticates hospital and returns JWT |
-| `/api/fl/broadcast` | `POST` | Bearer JWT | Dispatches training trigger into Kafka broker |
+| `/api/auth/register` | `POST` | Public | Onboards a hospital node with BCrypt password hashing |
+| `/api/auth/login` | `POST` | Public | Validates credentials and returns a signed 24h JWT |
+| `/api/fl/broadcast` | `POST` | Bearer JWT | Dispatches training trigger to edge clients via Kafka |
+| `/api/fl/versions` | `GET` | Bearer JWT | Returns history of aggregated global models and accuracies |
+| `/api/fl/latest-model` | `GET` | Bearer JWT | Fetches the latest active global model version |
 
 ---
 
-## License
+## 📜 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

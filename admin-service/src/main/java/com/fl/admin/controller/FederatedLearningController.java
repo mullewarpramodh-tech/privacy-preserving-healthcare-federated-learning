@@ -1,9 +1,14 @@
 package com.fl.admin.controller;
 
-import org.springframework.kafka.core.KafkaTemplate;
+import com.fl.admin.config.KafkaConfig;
+import com.fl.admin.model.GlobalModelVersion;
+import com.fl.admin.repository.GlobalModelVersionRepository;
+import com.fl.admin.service.FederatedAggregationService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -11,29 +16,48 @@ import java.util.Map;
 public class FederatedLearningController {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final GlobalModelVersionRepository modelVersionRepository;
+    private final FederatedAggregationService aggregationService;
 
-    public FederatedLearningController(KafkaTemplate<String, Object> kafkaTemplate) {
+    public FederatedLearningController(KafkaTemplate<String, Object> kafkaTemplate,
+                                       GlobalModelVersionRepository modelVersionRepository,
+                                       FederatedAggregationService aggregationService) {
         this.kafkaTemplate = kafkaTemplate;
+        this.modelVersionRepository = modelVersionRepository;
+        this.aggregationService = aggregationService;
     }
 
     @PostMapping("/broadcast")
     public ResponseEntity<?> broadcastGlobalModel() {
-        // Create a mock payload representing the Global Model
+        int round = aggregationService.getCurrentRound();
+        
         Map<String, Object> globalModelEvent = Map.of(
-            "version", 1,
+            "version", round,
             "status", "START_TRAINING",
-            "message", "Initial Global Model broadcasted to all hospitals."
+            "message", "Global Model Round #" + round + " broadcasted to all hospitals."
         );
 
-        // Broadcast to the Kafka topic synchronously to ensure it flushes
         try {
-            kafkaTemplate.send("global-model-updates", globalModelEvent).get();
-            System.out.println("KAFKA: Successfully flushed message to broker!");
+            kafkaTemplate.send(KafkaConfig.TOPIC_GLOBAL_MODEL, globalModelEvent).get();
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of("error", "Kafka Broker unreachable: " + e.getMessage()));
         }
 
-        return ResponseEntity.ok(Map.of("message", "Global Model successfully broadcasted via Kafka!"));
+        return ResponseEntity.ok(Map.of(
+            "message", "Global Model Round #" + round + " broadcasted successfully via Kafka!",
+            "round", round
+        ));
+    }
+
+    @GetMapping("/versions")
+    public ResponseEntity<List<GlobalModelVersion>> getModelVersions() {
+        return ResponseEntity.ok(modelVersionRepository.findAll());
+    }
+
+    @GetMapping("/latest-model")
+    public ResponseEntity<?> getLatestModelVersion() {
+        return modelVersionRepository.findTopByOrderByVersionNumberDesc()
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.ok().build());
     }
 }

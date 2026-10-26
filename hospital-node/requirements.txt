@@ -1,6 +1,5 @@
-fastapi
-uvicorn
 kafka-python-ng
 tensorflow
 pandas
+numpy
 requests
