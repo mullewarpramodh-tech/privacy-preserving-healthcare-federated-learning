@@ -6,11 +6,74 @@ import tensorflow as tf
 from kafka import KafkaConsumer, KafkaProducer
 
 # 1. Setup Kafka Connections to the Java Spring Boot Broker
-KAFKA_BROKER = os.getenv('KAFKA_BROKER', '127.0.0.1:9092')
-HOSPITAL_ID = int(os.getenv('HOSPITAL_ID', '1'))
-HOSPITAL_NAME = os.getenv('HOSPITAL_NAME', 'Delhi City Hospital')
+import sys
 
+KAFKA_BROKER = os.getenv('KAFKA_BROKER', '127.0.0.1:9092')
+
+# Allow passing ID and Name from command line (e.g. python main.py 2 "AIIMS New Delhi")
+HOSPITAL_ID = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.getenv('HOSPITAL_ID', '1'))
+HOSPITAL_NAME = sys.argv[2] if len(sys.argv) > 2 else os.getenv('HOSPITAL_NAME', 'Apollo Hospital Hyderabad')
 print(f"🏥 Starting Edge Node: '{HOSPITAL_NAME}' (ID: {HOSPITAL_ID})...")
+
+# Producer to send local trained weights back to Spring Boot Admin
+import socket
+import sys
+
+# Quick pre-flight check: Is Kafka on port 9092 alive?
+def is_kafka_running(host='127.0.0.1', port=9092):
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
+
+if not is_kafka_running():
+    print("\n" + "="*60)
+    print("❌ ERROR: Cannot reach Kafka Broker on 127.0.0.1:9092!")
+    print("👉 Please start Java Spring Boot first: 'mvn spring-boot:run'")
+    print("="*60 + "\n")
+    input("Press Enter to exit...")
+    sys.exit(1)
+
+# Producer to send local trained weights back to Spring Boot Admin
+import socket
+import sys
+
+# Quick pre-flight check: Is Kafka on port 9092 alive?
+def is_kafka_running(host='127.0.0.1', port=9092):
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
+
+if not is_kafka_running():
+    print("\n" + "="*60)
+    print("❌ ERROR: Cannot reach Kafka Broker on 127.0.0.1:9092!")
+    print("👉 Please start Java Spring Boot first: 'mvn spring-boot:run'")
+    print("="*60 + "\n")
+    input("Press Enter to exit...")
+    sys.exit(1)
+
+# Producer to send local trained weights back to Spring Boot Admin
+import socket
+import sys
+
+# Quick pre-flight check: Is Kafka on port 9092 alive?
+def is_kafka_running(host='127.0.0.1', port=9092):
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
+
+if not is_kafka_running():
+    print("\n" + "="*60)
+    print("❌ ERROR: Cannot reach Kafka Broker on 127.0.0.1:9092!")
+    print("👉 Please start Java Spring Boot first: 'mvn spring-boot:run'")
+    print("="*60 + "\n")
+    input("Press Enter to exit...")
+    sys.exit(1)
 
 # Producer to send local trained weights back to Spring Boot Admin
 producer = KafkaProducer(
@@ -20,14 +83,19 @@ producer = KafkaProducer(
 )
 
 # Consumer to listen for global model broadcasts from Spring Boot Admin
+from kafka import TopicPartition
+
+# Consumer to listen for global model broadcasts from Spring Boot Admin
 consumer = KafkaConsumer(
-    'global-model-updates',
     bootstrap_servers=[KAFKA_BROKER],
-    auto_offset_reset='earliest',
-    group_id=f'hospital-{HOSPITAL_ID}-group',
     api_version=(3, 7, 0),
     value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
+
+# Assign directly to partition 0 so all 4 hospitals listen concurrently without Windows socket locks
+global_topic_partition = TopicPartition('global-model-updates', 0)
+consumer.assign([global_topic_partition])
+consumer.seek_to_end(global_topic_partition)  # Listen for fresh rounds
 
 def build_model():
     """Builds the deep neural network architecture for clinical risk classification."""

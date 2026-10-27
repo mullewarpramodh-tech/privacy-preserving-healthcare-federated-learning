@@ -28,9 +28,9 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll() // Allow hospital registration and login
-                .anyRequest().authenticated() // Secure everything else (like training and analytics)
+                        .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/", "/index.html", "/favicon.ico", "/api/auth/**").permitAll()
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         
