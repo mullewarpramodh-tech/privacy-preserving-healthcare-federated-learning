@@ -37,4 +37,4 @@ jwt:
 fl:
   kafka:
     embedded: ${FL_KAFKA_EMBEDDED:true}
-  min-clients-for-round: 1
+  min-clients-for-round: 4

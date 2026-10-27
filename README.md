@@ -86,8 +86,7 @@ privacy-preserving-healthcare-federated-learning/
 ### 1. Launch the Java Admin Orchestrator
 ```bash
 cd admin-service
-./mvnw spring-boot:run
-```
+mvn spring-boot:run
 *The service boots up on `http://localhost:8080`, initializes the in-memory embedded Kafka broker on port `9092`, and connects to Neon PostgreSQL.*
 
 ### 2. Launch the Python Hospital Edge Node

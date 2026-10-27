@@ -33,8 +33,7 @@ public class KafkaConfig {
     @Bean
     @ConditionalOnProperty(name = "fl.kafka.embedded", havingValue = "true", matchIfMissing = true)
     public EmbeddedKafkaBroker embeddedKafkaBroker() {
-        EmbeddedKafkaZKBroker broker = new EmbeddedKafkaZKBroker(1, true, 1, TOPIC_GLOBAL_MODEL, TOPIC_LOCAL_WEIGHTS);
-        broker.brokerProperty("listeners", "PLAINTEXT://127.0.0.1:9092");
+    EmbeddedKafkaZKBroker broker = new EmbeddedKafkaZKBroker(1, true, 1);        broker.brokerProperty("listeners", "PLAINTEXT://127.0.0.1:9092");
         broker.brokerProperty("advertised.listeners", "PLAINTEXT://127.0.0.1:9092");
         broker.kafkaPorts(9092);
         return broker;
