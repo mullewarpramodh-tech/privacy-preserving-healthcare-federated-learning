@@ -16,14 +16,14 @@ A decentralized, privacy-preserving machine learning architecture engineered to 
 
 ```mermaid
 flowchart TD
-    subgraph Hospital Node (Edge Client)
+    subgraph HospitalNode ["Hospital Node (Edge Client)"]
         EHR[(Local Private EHR)] --> LocalTrain[TensorFlow Keras Training]
         LocalTrain --> ExtractedWeights[Trained Layer Tensors & Accuracy]
     end
 
     ExtractedWeights -->|Kafka: hospital-local-weights| Aggregator[Spring Boot FedAvg Engine]
 
-    subgraph Central Admin Orchestrator
+    subgraph CentralAdmin ["Central Admin Orchestrator"]
         Aggregator --> FedAvgCalc[Compute Federated Averaging]
         FedAvgCalc --> DB[(Neon Serverless PostgreSQL)]
         FedAvgCalc --> GlobalModel[Updated Global Model Version]
@@ -41,10 +41,11 @@ flowchart TD
   $$\theta_{\text{global}}^{(t+1)} \leftarrow \sum_{k=1}^{K} \frac{n_k}{N} \theta_k^{(t)}$$
 * **Event-Driven Polyglot Microservices:** Combines high-concurrency **Java Spring Boot** (participant registration, BCrypt password hashing, JWT stateless authentication, and Kafka stream orchestration) with **Python 3 / TensorFlow** for edge tensor training.
 * **Resilient Persistence:** Tracks global model versions, accuracy progression, and audit logs using **Neon Serverless PostgreSQL**.
+* **Interactive Web Administration Console:** Features a live dark-mode monitoring dashboard on `http://localhost:8080` displaying registered hospital nodes, training rounds, accuracy metrics, and manual round triggers.
 
 ---
 
-## ⚙️ Technology Stack
+## 🛠️ Technology Stack
 
 * **Central Orchestrator:** Java 21, Spring Boot 3.3, Spring Security (BCrypt + JWT), Spring Data JPA, Neon PostgreSQL.
 * **Event Broker:** Apache Kafka (`global-model-updates` & `hospital-local-weights`).
@@ -65,13 +66,17 @@ privacy-preserving-healthcare-federated-learning/
 │   │   ├── repository/          # HospitalRepository, GlobalModelVersionRepository
 │   │   ├── security/            # JwtUtil, JwtAuthFilter
 │   │   └── service/             # FederatedAggregationService (FedAvg Engine)
-│   ├── .env.example             # Template for externalized environment variables
+│   ├── src/main/resources/
+│   │   └── static/              # Real-Time Web Console (index.html)
 │   └── pom.xml
 ├── hospital-node/               # Python / TensorFlow Edge ML Client
 │   ├── main.py                  # Local training loop & Kafka event listener
 │   ├── generate_data.py         # Synthetic clinical EHR generator
 │   ├── mock_patient_data.csv    # Private local patient dataset
+│   ├── start_4_hospitals.bat    # Concurrent multi-node hospital simulation
 │   └── requirements.txt
+├── scripts/                     # Developer automation scripts
+│   └── start_federated_orchestrator.bat
 ├── .github/workflows/           # Automated CI/CD workflows
 │   └── ci-cd-pipeline.yml
 ├── .gitignore
@@ -87,6 +92,7 @@ privacy-preserving-healthcare-federated-learning/
 ```bash
 cd admin-service
 mvn spring-boot:run
+```
 *The service boots up on `http://localhost:8080`, initializes the in-memory embedded Kafka broker on port `9092`, and connects to Neon PostgreSQL.*
 
 ### 2. Launch the Python Hospital Edge Node
@@ -99,7 +105,14 @@ python main.py
 ```
 *The edge node connects to Kafka and begins listening for `global-model-updates`.*
 
-### 3. Execute a Federated Training Round
+### 3. Or Simulate 4 Concurrent Hospital Edge Nodes
+```bash
+cd hospital-node
+.\start_4_hospitals.bat
+```
+*Simulates 4 independent hospitals (Apollo, AIIMS, Fortis, Max) training locally and streaming weights to Kafka concurrently.*
+
+### 4. Execute a Federated Training Round
 
 #### A. Register & Authenticate a Hospital Node
 ```bash
@@ -140,5 +153,5 @@ curl -X GET http://localhost:8080/api/fl/versions \
 
 ---
 
-## 📜 License
+## 📄 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
